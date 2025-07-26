@@ -1,33 +1,27 @@
-#App.py
+# app.py
 import streamlit as st
-from transformers import MBartForConditionalGeneration, MBart50TokenizerFast
+from transformers import pipeline
+from langdetect import detect
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
-# Load model and tokenizer
-model_name = "facebook/mbart-large-50-many-to-many-mmt"
-tokenizer = MBart50TokenizerFast.from_pretrained(model_name)
-model = MBartForConditionalGeneration.from_pretrained(model_name)
+@st.cache_resource
+def load_model():
+    model_name = "csebuetnlp/mT5_multilingual_XLSum"  # Covers 45+ languages
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForSeq2SeqLM.from_pretrained(model_name)
+    summarizer = pipeline("summarization", model=model, tokenizer=tokenizer)
+    return summarizer
 
-st.title("Multilingual Text Summarizer")
-input_text = st.text_area("Enter text in any language", height=200)
-lang = st.selectbox("Select input language", ["English", "French", "Yoruba", "German", "Arabic"])
+st.title("🌍 Multilingual Text Summarization App")
+st.markdown("This app summarizes text in **multiple languages** using mT5.")
 
-lang_code_map = {
-    "English": "en_XX",
-    "French": "fr_XX",
-    "Yoruba": "yo_XX",
-    "German": "de_DE",
-    "Arabic": "ar_AR"
-}
+text_input = st.text_area("Enter your text here", height=300)
 
-if st.button("Summarize"):
-    tokenizer.src_lang = lang_code_map[lang]
-    encoded_input = tokenizer(input_text, return_tensors="pt", max_length=1024, truncation=True)
-    generated_tokens = model.generate(
-        **encoded_input,
-        forced_bos_token_id=tokenizer.lang_code_to_id["en_XX"],  # Summarize in English
-        max_length=150,
-        num_beams=4,
-    )
-    summary = tokenizer.decode(generated_tokens[0], skip_special_tokens=True)
-    st.subheader("📝 Summary")
-    st.write(summary)
+if text_input:
+    with st.spinner("Detecting language and summarizing..."):
+        lang = detect(text_input)
+        summarizer = load_model()
+        summary = summarizer(text_input, max_length=128, min_length=30, do_sample=False)
+        st.success(f"Detected Language: `{lang}`")
+        st.subheader("📝 Summary:")
+        st.write(summary[0]['summary_text'])
