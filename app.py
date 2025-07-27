@@ -30,4 +30,3 @@ if st.button("Summarize"):
         st.warning("Please enter some text first.")
 
 st.markdown("---")
-st.caption("Built with 💙 using Hugging Face Transformers & Streamlit")
