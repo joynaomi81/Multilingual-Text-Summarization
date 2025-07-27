@@ -1,11 +1,3 @@
 streamlit
 transformers
 torch
-sentencepiece
-protobuf
-scikit-learn
-numpy
-pandas
-tqdm
-nltk
-huggingface-hub
