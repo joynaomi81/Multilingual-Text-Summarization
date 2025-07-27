@@ -1,5 +1,6 @@
 import streamlit as st
 from transformers import pipeline
+import PyPDF2
 
 # Load QA pipeline
 @st.cache_resource
@@ -9,17 +10,33 @@ def load_model():
 qa_pipeline = load_model()
 
 # Streamlit UI
-st.title("🧠 BERT Question Answering App")
-st.write("Ask a question based on the context below, and BERT will answer!")
+st.title("📄🤖 Ask Questions from PDF using BERT")
+st.write("Upload a PDF, and ask questions based on its content!")
 
-# User input
-context = st.text_area("Context Paragraph", height=200, placeholder="Enter your context here...")
-question = st.text_input("Question", placeholder="What do you want to ask about the paragraph?")
+# PDF Upload
+uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
+
+pdf_text = ""
+if uploaded_file is not None:
+    with st.spinner("Extracting text from PDF..."):
+        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+        for page in pdf_reader.pages:
+            pdf_text += page.extract_text()
+
+    st.success("Text extracted from PDF successfully!")
+
+# Show extracted content (optional preview)
+if pdf_text:
+    with st.expander("📖 Preview Extracted Text"):
+        st.write(pdf_text[:3000])  # Only preview first 3000 characters
+
+# Question answering section
+question = st.text_input("❓ Ask your question based on the PDF")
 
 if st.button("Get Answer"):
-    if context.strip() == "" or question.strip() == "":
-        st.warning("Please provide both context and question.")
+    if not pdf_text or not question.strip():
+        st.warning("Please upload a PDF and enter your question.")
     else:
         with st.spinner("Thinking..."):
-            result = qa_pipeline(question=question, context=context)
+            result = qa_pipeline(question=question, context=pdf_text)
             st.success(f"Answer: **{result['answer']}**")
