@@ -1,13 +1,17 @@
 import streamlit as st
-from transformers import pipeline, AutoTokenizer, AutoModelForSeq2SeqLM
+from transformers import pipeline
 from langdetect import detect
 import fitz  # PyMuPDF
 
-# === Load models ===
+# === Load models safely ===
 @st.cache_resource
 def load_qa_models():
     en_model = pipeline("question-answering", model="bert-large-uncased-whole-word-masking-finetuned-squad")
-    multi_model = pipeline("question-answering", model="deepset/xlm-roberta-base-squad2")
+    try:
+        multi_model = pipeline("question-answering", model="mrm8488/bert-multi-cased-finetuned-xquadv1")
+    except:
+        st.warning("Multilingual model failed to load. Falling back to English-only model.")
+        multi_model = en_model
     return en_model, multi_model
 
 @st.cache_resource
@@ -48,6 +52,7 @@ def get_best_answer(question, context_chunks, qa_pipeline):
     return best_answer, best_score
 
 # === Streamlit UI ===
+st.set_page_config(page_title="Multilingual PDF QA", layout="wide")
 st.title("📚🌍 Multilingual BERT QA with Summarization")
 st.write("Upload a PDF, get a summary, and ask questions in English or Yoruba!")
 
@@ -78,7 +83,7 @@ if uploaded_file:
     # === Question answering ===
     question = st.text_input("❓ Ask your question:")
     if st.button("Get Answer"):
-        with st.spinner("Searching for answers..."):
+        with st.spinner("Thinking..."):
             chunks = chunk_text(pdf_text)
             qa_model = qa_en if lang == "en" else qa_multi
             answer, score = get_best_answer(question, chunks, qa_model)
@@ -86,4 +91,4 @@ if uploaded_file:
             if answer:
                 st.success(f"✅ Answer: **{answer}** (Confidence: {score:.2f})")
             else:
-                st.warning("No confident answer found in the document.")
+                st.warning("⚠️ No confident answer found in the document.")
