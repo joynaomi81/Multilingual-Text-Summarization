@@ -9,7 +9,7 @@ env/
 __pycache__/
 *.pyc
 
-# Ignore Jupyter Notebook checkpoints (if any)
+# Ignore Jupyter Notebook checkpoints
 .ipynb_checkpoints/
 
 # Ignore system files
