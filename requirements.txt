@@ -4,5 +4,4 @@ langchain-google-genai
 langchain-community
 tavily-python
 PyPDF2
-openai
-
+google-generativeai
