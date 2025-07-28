@@ -1,91 +1,103 @@
-import os
 import streamlit as st
-from datetime import datetime
+import os
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import initialize_agent, AgentType
-from langchain_community.tools.tavily_search import TavilySearchResults
+from langchain.chains import LLMChain
+from langchain.prompts import PromptTemplate
+from PyPDF2 import PdfReader
 
-# 🔐 API keys (secured using Streamlit secrets)
+# Set API keys (Use Streamlit secrets in production)
 os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
-os.environ["TAVILY_API_KEY"] = st.secrets["TAVILY_API_KEY"]
 
-# 🔧 Initialize LLM and tools
+# Initialize LLM
 llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
-search_tool = TavilySearchResults()
-tools = [search_tool]
 
-agent = initialize_agent(
-    tools=tools,
-    llm=llm,
-    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
-    handle_parsing_errors=True,
-    verbose=True
-)
+# Set page config
+st.set_page_config(page_title="Research Buddy", page_icon="📚")
 
-# 💾 Save response to file
-def save_response(field, question, response):
-    filename = f"research_output_{field.replace(' ', '_').lower()}.txt"
-    with open(filename, "a", encoding="utf-8") as file:
-        file.write(f"\n--- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
-        file.write(f"Field: {field}\n")
-        file.write(f"Question: {question}\n")
-        file.write(f"Response:\n{response}\n")
+st.title("📚 Research Assistant Bot")
 
-# 🎨 Streamlit UI
-st.set_page_config(page_title="Research Assistant", page_icon="📚")
+# Sidebar Menu
+menu = st.sidebar.selectbox("Select Feature", [
+    "Research Assistant", 
+    "Paper Summarizer", 
+    "Research Chat Assistant"
+])
 
-st.title("📚 AI Research Assistant")
-st.markdown("Get answers to research questions or summarize any research text. Powered by Gemini + Tavily + Langchain.")
+# 1. Research Assistant
+if menu == "Research Assistant":
+    st.subheader("📌 Ask Your Research Question")
+    field = st.text_input("Enter your academic field (e.g. Linguistics, Computer Science)")
+    question = st.text_area("Enter your research question")
+    
+    if st.button("Get Research Insights"):
+        with st.spinner("Thinking..."):
+            template = """
+            You are a research assistant for the field: {field}. Help answer the following question: {question}.
+            Provide:
+            - A summary
+            - APA style references (if applicable)
+            - Relevant academic papers
+            - Key researchers in the area
+            - Suggested follow-up questions or gaps
+            """
+            prompt = PromptTemplate.from_template(template)
+            chain = LLMChain(llm=llm, prompt=prompt)
+            response = chain.run(field=field, question=question)
+            st.markdown("### 🔍 Answer:")
+            st.write(response)
 
-# 📌 Sidebar menu
-menu = st.sidebar.selectbox("📋 Select Task", ["Research Q&A", "Summarizer"])
+# 2. Paper Summarizer
+elif menu == "Paper Summarizer":
+    st.subheader("📄 Summarize Your Paper")
+    option = st.radio("Choose Input Method", ["Upload PDF", "Paste Text"])
 
-# ================= RESEARCH Q&A ==================
-if menu == "Research Q&A":
-    st.subheader("🔍 Ask Research Questions")
-    field = st.text_input("Enter your research field (e.g. Linguistics, AI, Medicine):")
-    question = st.text_area("What do you want to research?", height=150)
+    if option == "Upload PDF":
+        pdf_file = st.file_uploader("Upload a research paper (PDF)", type=["pdf"])
+        if pdf_file is not None:
+            reader = PdfReader(pdf_file)
+            raw_text = ""
+            for page in reader.pages:
+                raw_text += page.extract_text()
+            st.success("PDF extracted successfully.")
+    else:
+        raw_text = st.text_area("Paste the research text")
 
-    if st.button("🔎 Search"):
-        if field and question:
-            prompt = (
-                f"You are a helpful research assistant for a graduate student in the field of {field}. "
-                f"The student wants to research: '{question}'.\n"
-                f"Give a summary of the topic using real-time search. Include links to academic journals or papers, "
-                f"mention relevant researchers, and provide citations in APA format."
-            )
-            with st.spinner("Generating response..."):
-                try:
-                    response = agent.run(prompt)
-                    st.success("✅ Response generated!")
-                    st.markdown("### 📄 Result:")
-                    st.write(response)
+    if st.button("Summarize Paper") and raw_text:
+        with st.spinner("Summarizing..."):
+            template = """
+            Summarize the following research paper content. Highlight:
+            - Abstract
+            - Main findings
+            - Methodology
+            - Conclusion
+            - 3 key takeaways
+            """
+            prompt = PromptTemplate.from_template(template)
+            chain = LLMChain(llm=llm, prompt=prompt)
+            summary = chain.run(raw_text)
+            st.markdown("### 📝 Summary:")
+            st.write(summary)
 
-                    if st.checkbox("💾 Save this response?"):
-                        save_response(field, question, response)
-                        st.success("Saved to local file.")
-                except Exception as e:
-                    st.error(f"⚠️ An error occurred: {e}")
-        else:
-            st.warning("Please enter both your field and question.")
+# 3. Research Chat Assistant
+elif menu == "Research Chat Assistant":
+    st.subheader("💬 Ask Anything about Research")
+    user_input = st.text_area("Ask your question or describe your research interest:")
+    if st.button("Get Guidance"):
+        with st.spinner("Getting insights..."):
+            template = """
+            You are a research chatbot. Help this user who wrote:
+            "{user_input}"
+            Respond with:
+            - Suggestions for papers to read
+            - Research direction or clarification
+            - If unclear, ask follow-up questions
+            """
+            prompt = PromptTemplate.from_template(template)
+            chain = LLMChain(llm=llm, prompt=prompt)
+            chat_reply = chain.run(user_input=user_input)
+            st.markdown("### 🤖 Assistant Reply:")
+            st.write(chat_reply)
 
-# ================= SUMMARIZER ==================
-elif menu == "Summarizer":
-    st.subheader("📚 Summarize Research Text")
-    text_to_summarize = st.text_area("Paste your research abstract, paragraph, or article:", height=200)
-
-    if st.button("📝 Summarize"):
-        if text_to_summarize.strip():
-            summarization_prompt = (
-                "Summarize the following research text in clear academic language with key points:\n\n"
-                f"{text_to_summarize}"
-            )
-            with st.spinner("Summarizing..."):
-                try:
-                    summary = llm.invoke(summarization_prompt).content
-                    st.markdown("### ✨ Summary:")
-                    st.write(summary)
-                except Exception as e:
-                    st.error(f"⚠️ Summarization failed: {e}")
-        else:
-            st.warning("Please paste some text to summarize.")
+# Footer
+st.markdown("---")
+st.markdown("Built with ❤️ by Joy Olusanya | [GitHub](https://github.com/joynaomi81)")
