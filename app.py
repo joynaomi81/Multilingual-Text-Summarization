@@ -1,42 +1,67 @@
+import os
 import streamlit as st
-from transformers import pipeline
-import PyPDF2
+from datetime import datetime
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.agents import initialize_agent, AgentType
+from langchain_community.tools.tavily_search import TavilySearchResults
 
-# Load QA pipeline
-@st.cache_resource
-def load_model():
-    return pipeline("question-answering", model="bert-large-uncased-whole-word-masking-finetuned-squad")
+# 🔐 API keys (hide with secrets in deployment)
+os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+os.environ["TAVILY_API_KEY"] = st.secrets["TAVILY_API_KEY"]
 
-qa_pipeline = load_model()
+# 🔧 Initialize LLM and tools
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",
+    temperature=0.3
+)
+search_tool = TavilySearchResults()
+tools = [search_tool]
 
-# Streamlit UI
-st.title("📄🤖 BERT-Powered PDF Question Answering App")
-st.write("Upload a PDF, and ask questions based on its content!")
+agent = initialize_agent(
+    tools=tools,
+    llm=llm,
+    agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
+    handle_parsing_errors=True,
+    verbose=True
+)
 
-# PDF Upload
-uploaded_file = st.file_uploader("Upload your PDF file", type=["pdf"])
+# 💾 Save response to local file
+def save_response(field, question, response):
+    filename = f"research_output_{field.replace(' ', '_').lower()}.txt"
+    with open(filename, "a", encoding="utf-8") as file:
+        file.write(f"\n--- {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
+        file.write(f"Field: {field}\n")
+        file.write(f"Question: {question}\n")
+        file.write(f"Response:\n{response}\n")
 
-pdf_text = ""
-if uploaded_file is not None:
-    with st.spinner("Extracting text from PDF..."):
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-        for page in pdf_reader.pages:
-            pdf_text += page.extract_text()
+# 🎨 Streamlit UI
+st.set_page_config(page_title="Research Assistant", page_icon="📚")
+st.title("📚 AI Research Assistant")
+st.markdown("Ask research questions and get real-time responses with academic resources and APA citations.")
 
-    st.success("Text extracted from PDF successfully!")
+field = st.text_input("Enter your research field (e.g. Linguistics, AI, Medicine):")
+question = st.text_area("What do you want to research?", height=150)
 
-# Show extracted content (optional preview)
-if pdf_text:
-    with st.expander("📖 Preview Extracted Text"):
-        st.write(pdf_text[:3000])  # Only preview first 3000 characters
+if st.button("🔍 Search"):
+    if field and question:
+        full_prompt = (
+            f"You are a helpful research assistant for a graduate student in the field of {field}. "
+            f"The student wants to research: '{question}'.\n"
+            f"Give a summary of the topic using real-time search. Include links to academic journals or papers, and mention any relevant researchers. "
+            f"Also include citations in APA format if available."
+        )
 
-# Question answering section
-question = st.text_input("❓ Ask your question based on the PDF")
+        with st.spinner("Searching..."):
+            try:
+                response = agent.run(full_prompt)
+                st.success("✅ Response generated!")
+                st.markdown("### 📄 Result:")
+                st.write(response)
 
-if st.button("Get Answer"):
-    if not pdf_text or not question.strip():
-        st.warning("Please upload a PDF and enter your question.")
+                if st.checkbox("💾 Save this response?"):
+                    save_response(field, question, response)
+                    st.success("Saved to local file.")
+            except Exception as e:
+                st.error(f"⚠️ An error occurred: {e}")
     else:
-        with st.spinner("Thinking..."):
-            result = qa_pipeline(question=question, context=pdf_text)
-            st.success(f"Answer: **{result['answer']}**")
+        st.warning("Please fill in both the field and your question.")
