@@ -7,12 +7,16 @@ from langchain.prompts import PromptTemplate
 from langchain_community.tools.tavily_search import TavilySearchResults
 from PyPDF2 import PdfReader
 
-# ✅ Set API keys
-os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
-os.environ["TAVILY_API_KEY"] = st.secrets["TAVILY_API_KEY"]
+# ✅ Safely set API keys
+try:
+    os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+    os.environ["TAVILY_API_KEY"] = st.secrets["TAVILY_API_KEY"]
+except Exception as e:
+    st.error("🔐 API keys missing or not set correctly in Streamlit secrets.")
+    st.stop()
 
 # ✅ Initialize LLM and search tool
-llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
+llm = ChatOpenAI(model_name="gpt-4o", temperature=0.3)
 tavily = TavilySearchResults()
 
 # ✅ Streamlit config
@@ -132,4 +136,4 @@ elif menu == "Research Chat Assistant":
 
 # 🔚 Footer
 st.markdown("---")
-st.markdown("Built with ❤ by Joy Olusanya | [GitHub](https://github.com/joynaomi81)")
+st.markdown("Built with by Joy Olusanya | [GitHub](https://github.com/joynaomi81)")
