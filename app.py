@@ -1,18 +1,18 @@
 import os
 import streamlit as st
 from datetime import datetime
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.chat_models import ChatOpenAI
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain_community.tools.tavily_search import TavilySearchResults
 from PyPDF2 import PdfReader
 
 # ✅ Set API keys
-os.environ["GOOGLE_API_KEY"] = st.secrets["GOOGLE_API_KEY"]
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 os.environ["TAVILY_API_KEY"] = st.secrets["TAVILY_API_KEY"]
 
 # ✅ Initialize LLM and search tool
-llm = ChatGoogleGenerativeAI(model="gemini-1.5-flash", temperature=0.3)
+llm = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.3)
 tavily = TavilySearchResults()
 
 # ✅ Streamlit config
@@ -44,10 +44,8 @@ if menu == "Research Assistant":
     if st.button("Get Research Insights"):
         if field and question:
             with st.spinner("Thinking and researching..."):
-                # Tavily fetch
                 links = fetch_research_links(question)
 
-                # Gemini reasoning
                 template = """
                 You are a research assistant in the field of {field}. A user asked: "{question}".
                 Help by providing:
@@ -61,7 +59,6 @@ if menu == "Research Assistant":
                 chain = LLMChain(llm=llm, prompt=prompt)
                 reasoning = chain.run(field=field, question=question)
 
-                # Display results
                 st.markdown("### 🤖 Assistant Insights:")
                 st.write(reasoning)
 
@@ -110,10 +107,8 @@ elif menu == "Research Chat Assistant":
     if st.button("Get Guidance"):
         if user_input:
             with st.spinner("Analyzing and researching..."):
-                # Tavily search
                 links = fetch_research_links(user_input)
 
-                # Gemini reply
                 template = """
                 You are a research chatbot. A user asked: "{user_input}".
                 Help them by:
@@ -127,7 +122,6 @@ elif menu == "Research Chat Assistant":
                 chain = LLMChain(llm=llm, prompt=prompt)
                 reply = chain.run(user_input=user_input)
 
-                # Output
                 st.markdown("### 🤖 Assistant Reply:")
                 st.write(reply)
 
