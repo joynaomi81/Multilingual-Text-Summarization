@@ -1,7 +1,0 @@
-streamlit
-langchain
-langchain-google-genai
-langchain-community
-tavily-python
-PyPDF2
-google-generativeai
