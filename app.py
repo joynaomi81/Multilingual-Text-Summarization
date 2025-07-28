@@ -33,7 +33,7 @@ def fetch_research_links(topic):
         links = "\n".join([f"- [{res['title']}]({res['url']})" for res in results[:5]])
         return links
     except Exception as e:
-        return f"⚠️ Could not fetch live results: {e}"
+        return f"⚠ Could not fetch live results: {e}"
 
 # 🔎 1. Research Assistant
 if menu == "Research Assistant":
@@ -138,4 +138,4 @@ elif menu == "Research Chat Assistant":
 
 # 🔚 Footer
 st.markdown("---")
-st.markdown("Built with ❤️ by Joy Olusanya | [GitHub](https://github.com/joynaomi81)")
+st.markdown("Built with ❤ by Joy Olusanya | [GitHub](https://github.com/joynaomi81)")
